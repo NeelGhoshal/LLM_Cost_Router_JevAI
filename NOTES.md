@@ -106,6 +106,33 @@ OpenRouter's Jev guide and the Haiku 5.5 / Opus 5.5 model pages.
 - One hard MMLU-Pro chemistry item ran both models into the 600-token cap with no answer.
 - Windows consoles default to cp1252 and cannot print some model output. Scripts now switch stdout to UTF-8.
 
+## M4: pilot and gap check (2026-11-13)
+
+`make pilot ARGS=--yes` ran 50 dev prompts into the real caches (`cache/llm.jsonl`, `cache/jev.jsonl`).
+Real spend $0.000892. The full run will resume from these rows.
+
+| source | n | small (`qwen3:1.7b`) | large (`qwen3:8b`) | gap |
+|---|---|---|---|---|
+| arc | 13 | 0.615 | 0.923 | +30.8 |
+| gsm8k | 12 | 0.750 | 0.917 | +16.7 |
+| mmlu | 13 | 0.692 | 0.769 | +7.7 |
+| mmlu_pro | 12 | 0.417 | 0.583 | +16.7 |
+| all | 50 | 0.620 | 0.800 | **+18.0** |
+
+- **Gap check passes**: 18 points against the 8-point minimum. No change of sources or models is proposed.
+  With 12 or 13 prompts per source the per-source figures are noise; only the overall gap is used.
+- Outcome mix: both right 29, only large 11, only small 2, neither 8. Oracle accuracy 0.84. Routing to large
+  only helps on 22% of prompts, which is the headroom any router has.
+- **Format failures**: 2 replies, both from the small model, gave the right letter without an `ANSWER:` line
+  ("so the correct answer is D." and "Final line: **D**"). Under lenient grading small would be 0.66 and the
+  gap 14 points. Grading stays strict: the instruction is part of the task, and a production caller parsing
+  the output would also fail on these. The README should state the rate.
+- Token cap: 3 replies per model hit 600 tokens with no answer, all counted wrong.
+- **Local runs are not perfectly repeatable.** `mmlu-10082` on the small model answered C in the smoke run and
+  D in the pilot, at temperature 0 with the same seed. The caches are the record; a fresh run may differ slightly.
+- Preview only, 50 dev prompts, too few to conclude anything: AUROC for "small is correct" was 0.651 for Jev
+  and 0.613 for prompt length. Jev probabilities ranged 0.25 to 0.96. Jev latency p50 78 ms, max 388 ms.
+
 ## Original proposal: Haiku 5.5 / Opus 5.5 on OpenRouter (not used)
 
 Same family, both on OpenRouter, prices read from the OpenRouter model pages on 2026-11-12.

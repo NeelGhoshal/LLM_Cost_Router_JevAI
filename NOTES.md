@@ -76,6 +76,18 @@ OpenRouter's Jev guide and the Haiku 5.5 / Opus 5.5 model pages.
   created with `max_retries=0`.
 - Tooling: `uv` is not installed, so the project uses `python -m venv .venv` plus pip. Python is 3.13.
 
+## M2: dataset and graders (2026-11-12)
+
+- All four suggested sources load: `cais/mmlu` (config `all`), `allenai/ai2_arc` (`ARC-Challenge`),
+  `openai/gsm8k` (`main`), `TIGER-Lab/MMLU-Pro`. The `test` split of each is used.
+- `data/prompts.jsonl` has 400 prompts, 100 per source, 50 dev and 50 test per source. It carries a `split`
+  field in addition to the spec's `id`, `source`, `prompt`, `gold`. Rebuilding gives a byte-identical file.
+- Grading is strict: only the last `ANSWER:` line counts. An output with no such line, including one cut off
+  at the 600-token cap, is graded wrong. This can understate a model that reasons at length.
+- ARC rows labelled 1-4 are re-lettered A-D. MMLU-Pro `N/A` options are dropped and the rest re-lettered.
+- MMLU-Pro has up to 10 options (A-J), so chance accuracy there is about 10%, against 25% for MMLU and ARC.
+- MMLU-Pro draws part of its questions from MMLU. The current sample has no duplicate prompts.
+
 ## Original proposal: Haiku 5.5 / Opus 5.5 on OpenRouter (not used)
 
 Same family, both on OpenRouter, prices read from the OpenRouter model pages on 2026-11-12.

@@ -53,7 +53,30 @@ OpenRouter's Jev guide and the Haiku 5.5 / Opus 5.5 model pages.
 - Whether text inside `state` can act as instructions (prompt injection). Docs are silent. Benchmark prompts make this low risk here; it belongs in README limitations for real traffic.
 - Jev latency: no published figures. We measure p50/p95 ourselves.
 
-## Proposed model pair (awaiting OK)
+## Decisions after M0 (2026-11-12)
+
+- **LLMs run locally on Ollama, not OpenRouter** (user decision). This replaces the Haiku/Opus proposal below.
+  - small: `qwen3:1.7b` (1.4 GB, not pulled yet). large: `qwen3:8b` (already installed).
+  - Hardware is an RTX 4060 Laptop GPU with 8 GB VRAM, which is why the large model stops at 8B.
+  - Real spend is $0 for the LLMs. Only Jev is billed (about a cent for the whole project).
+  - **The cost axis uses imputed prices.** `qwen3:8b` is priced at OpenRouter's `qwen/qwen3-8b` list rate,
+    $0.117 / $0.455 per million input / output tokens (read 2026-11-12). No hosted price was found for the
+    1.7B model, so it is scaled by parameter count (1.7 / 8): $0.025 / $0.097. That scaling is an assumption,
+    not a quote. The price ratio is about 4.7x, far smaller than Haiku/Opus at 40x, so percent-saved figures
+    will be modest by construction. The README must say this.
+  - Ollama is called through its native `/api/chat` with `think: false`. Qwen3 is a thinking model and its
+    reasoning tokens would otherwise eat the 600-token output cap. Checked locally on `qwen3:8b`.
+  - Local latency is not representative of hosted models. Jev latency (the reported one) is unaffected.
+- **Jev pinned to `jev-1.14.0`** (current release; the spec allowed "whatever is current").
+- **Jev goes direct to TypeSafe** with `TYPESAFE_API_KEY` from `.env`.
+- The OpenRouter client is kept behind the same interface (`provider: openrouter` in `config.yaml`) so the
+  pair can be swapped later. It is covered by a mocked test only; it has never been run against OpenRouter.
+- The live router (`router/route.py`, spec section 9) was built in M1 because the fallback and threshold tests
+  need it. The deadline is enforced with a worker thread on top of the SDK timeout, and the real client is
+  created with `max_retries=0`.
+- Tooling: `uv` is not installed, so the project uses `python -m venv .venv` plus pip. Python is 3.13.
+
+## Original proposal: Haiku 5.5 / Opus 5.5 on OpenRouter (not used)
 
 Same family, both on OpenRouter, prices read from the OpenRouter model pages on 2026-11-12.
 

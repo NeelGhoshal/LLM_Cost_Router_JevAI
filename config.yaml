@@ -1,0 +1,18 @@
+jev_model: jev-1.14.0
+jev_usd_per_m_input: 0.042
+
+# Both LLMs run locally on Ollama, so real spend is $0. The usd_per_m_* values are
+# imputed list prices used for the cost axis. See NOTES.md for where they come from.
+small_model: {provider: ollama, id: "qwen3:1.7b", usd_per_m_input: 0.025, usd_per_m_output: 0.097}
+large_model: {provider: ollama, id: "qwen3:8b", usd_per_m_input: 0.117, usd_per_m_output: 0.455}
+
+ollama_url: http://localhost:11434
+max_output_tokens: 600
+temperature: 0
+seed: 7
+n_prompts: 400
+max_usd: 10
+
+# Live router. threshold is a placeholder until it is tuned on dev in M5.
+threshold: 0.5
+jev_timeout_s: 2.0

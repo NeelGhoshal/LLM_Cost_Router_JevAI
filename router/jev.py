@@ -77,6 +77,10 @@ class TypeSafeJev:
             model=r.model,
         )
 
+    def list_models(self) -> list[str]:
+        """Key check. Sends no text."""
+        return [m.name for m in self._client.models.list().models]
+
     def close(self) -> None:
         self._client.close()
 

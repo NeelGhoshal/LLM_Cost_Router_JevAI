@@ -5,6 +5,7 @@ import logging
 
 from dotenv import load_dotenv
 
+from router.cli import utf8_stdout
 from router.config import load_config
 from router.costs import jev_cost, llm_cost
 from router.llm import make_llm_client
@@ -18,6 +19,7 @@ def main() -> None:
     args = parser.parse_args()
 
     load_dotenv()
+    utf8_stdout()
     logging.basicConfig(level=logging.WARNING, format="%(levelname)s %(name)s: %(message)s")
     cfg = load_config()
 

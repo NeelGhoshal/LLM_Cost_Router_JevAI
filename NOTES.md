@@ -88,6 +88,24 @@ OpenRouter's Jev guide and the Haiku 5.5 / Opus 5.5 model pages.
 - MMLU-Pro has up to 10 options (A-J), so chance accuracy there is about 10%, against 25% for MMLU and ARC.
 - MMLU-Pro draws part of its questions from MMLU. The current sample has no duplicate prompts.
 
+## M3: smoke test (2026-11-12)
+
+`make smoke ARGS=--yes` ran 10 dev prompts end to end. Real spend $0.000176.
+
+- **`GET /v1/models` lists only the aliases** (`jev-latest`, `jev-preview`), not pinned versions. A request
+  with `model: jev-1.14.0` is accepted anyway and every response reported `jev-1.14.0`. The smoke script
+  therefore treats "not in the list" as a note, not an error.
+- **Jev bills about 300 tokens of fixed overhead per question** on top of the state (335 input tokens for a
+  139-character prompt). Output is reported as 21 tokens and is free. My first estimate assumed 60 and came
+  out low; the estimator now uses 350. The full run is still under one cent ($0.0076 for 400 prompts).
+- Jev latency in this run: 56 to 127 ms per call, single question. Too few calls for p50/p95.
+- 10-prompt accuracy, for plumbing only: small 4/10, large 8/10. Not a result.
+- One small-model reply ended "so the correct answer is D." with no `ANSWER:` line and was graded wrong
+  although D was the gold answer. Strict grading stands for now; the M4 pilot will count how often this
+  happens for each model, because a format failure that hits the small model more often would inflate the gap.
+- One hard MMLU-Pro chemistry item ran both models into the 600-token cap with no answer.
+- Windows consoles default to cp1252 and cannot print some model output. Scripts now switch stdout to UTF-8.
+
 ## Original proposal: Haiku 5.5 / Opus 5.5 on OpenRouter (not used)
 
 Same family, both on OpenRouter, prices read from the OpenRouter model pages on 2026-11-12.

@@ -4,7 +4,12 @@ else
 PY ?= .venv/bin/python
 endif
 
-.PHONY: test data
+.PHONY: test data smoke
+
+# 10 prompts end to end with the real Jev API and local models, capped at $0.50.
+# Prints the estimate and stops unless confirmed: make smoke ARGS=--yes
+smoke:
+	$(PY) eval/smoke.py $(ARGS)
 
 test:
 	$(PY) -m pytest -q

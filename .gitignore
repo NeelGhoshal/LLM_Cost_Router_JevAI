@@ -6,3 +6,6 @@ __pycache__/
 *.egg-info/
 # Hugging Face downloads; caches under cache/ and data/prompts.jsonl are committed so results reproduce offline
 .hf_cache/
+
+# Smoke-test scratch output; the evaluation caches in cache/*.jsonl are committed
+cache/smoke/

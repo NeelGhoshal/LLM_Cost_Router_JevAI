@@ -6,10 +6,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Mapping, Sequence
 
-from router.cache import append_jsonl, done_keys, load_jsonl
+from evalkit.cache import append_jsonl, done_keys, load_jsonl
 from router.config import REPO_ROOT, Config, ModelSpec
 from router.costs import BudgetGuard, is_billed, jev_cost, llm_cost
-from router.graders import extract_answer, grade
+from evalkit.graders import extract_answer, grade
 from router.jev import DEFAULT_INSTRUCTIONS, QUESTION_KEY, JevClient
 from router.llm import LLMClient
 
@@ -63,7 +63,9 @@ class Estimate:
         )
 
 
-def estimate(prompts: Sequence[Prompt], cfg: Config, *, models: bool = True, jev_questions: int = 1) -> Estimate:
+def estimate(
+    prompts: Sequence[Prompt], cfg: Config, *, models: bool = True, jev_questions: int = 1, response_tokens: int = 0
+) -> Estimate:
     """Worst case: every answer uses the full output cap, and Jev bills the state once per question."""
     in_tokens = [len(p["prompt"]) / CHARS_PER_TOKEN for p in prompts]
     billed = imputed = 0.0
@@ -72,7 +74,11 @@ def estimate(prompts: Sequence[Prompt], cfg: Config, *, models: bool = True, jev
             cost = sum(llm_cost(spec, t, cfg.max_output_tokens) for t in in_tokens)
             imputed += cost
             billed += cost if is_billed(spec) else 0.0
-    jev = sum(jev_cost((t + JEV_QUESTION_TOKENS) * jev_questions, cfg.jev_usd_per_m_input) for t in in_tokens)
+    # response_tokens: extra state per call when Jev also reads a model response (cascade checks)
+    jev = sum(
+        jev_cost((t + response_tokens + JEV_QUESTION_TOKENS) * jev_questions, cfg.jev_usd_per_m_input)
+        for t in in_tokens
+    )
     return Estimate(billed, imputed, jev if jev_questions else 0.0)
 
 
@@ -94,6 +100,8 @@ def run_models(
             r = clients[role].complete(spec.id, p["prompt"])
             cost = llm_cost(spec, r.input_tokens, r.output_tokens)
             row = _model_row(p, role, spec, r.text, r.input_tokens, r.output_tokens, cost, r.latency_ms)
+            if r.error:
+                row["error"] = r.error
             append_jsonl(cache_path, row)
             made += 1
             progress(f"{role} {i}/{len(todo)} {p['id']} correct={row['correct']} {r.latency_ms / 1000:.1f}s")
@@ -119,19 +127,66 @@ def _model_row(p: Prompt, role: str, spec: ModelSpec, text: str, in_tok: int, ou
     }
 
 
+def run_checks(
+    prompts: Sequence[Prompt],
+    small_rows: Mapping[str, Mapping[str, Any]],
+    cfg: Config,
+    jev: JevClient,
+    cache_path: str | Path,
+    guard: BudgetGuard,
+    checks: Mapping[str, Any],
+    progress: Progress = lambda msg: None,
+    tag: str | None = None,
+) -> int:
+    """Cascade checks: one Jev call per prompt on the request plus the small model's response.
+
+    A response with no ANSWER line breaks the output contract and is escalated without asking
+    Jev, so no call is made (and no fee paid) for it. Rows are tagged with the set of checks
+    asked; only rows with the same tag count as done.
+    """
+    done = {r["id"] for r in load_jsonl(cache_path) if r.get("checks") == tag}
+    todo = [p for p in prompts if p["id"] not in done and p["id"] in small_rows and small_rows[p["id"]]["answer"] is not None]
+    for i, p in enumerate(todo, 1):
+        r = jev.ask_state({"prompt": p["prompt"], "response": small_rows[p["id"]]["text"]}, checks)
+        cost = jev_cost(r.input_tokens, cfg.jev_usd_per_m_input)
+        append_jsonl(
+            cache_path,
+            {
+                "id": p["id"],
+                "source": p["source"],
+                "split": p["split"],
+                "checks": tag,
+                "probs": r.probs,
+                "input_tokens": r.input_tokens,
+                "output_tokens": r.output_tokens,
+                "cost": cost,
+                "latency_ms": round(r.latency_ms, 1),
+                "model": r.model,
+            },
+        )
+        progress(f"check {i}/{len(todo)} {p['id']} " + " ".join(f"{k}={v:.2f}" for k, v in r.probs.items()))
+        guard.add(cost)
+    return len(todo)
+
+
 def run_jev(
     prompts: Sequence[Prompt],
     cfg: Config,
     jev: JevClient,
     cache_path: str | Path,
     guard: BudgetGuard,
-    instructions: Mapping[str, str] | None = None,
+    instructions: Mapping[str, Any] | None = None,
     progress: Progress = lambda msg: None,
+    phrasing: str | None = None,
 ) -> int:
-    """One Jev call per prompt. Returns the number of new calls made."""
+    """One Jev call per prompt. Returns the number of new calls made.
+
+    phrasing names the wording behind the single routing question. Rows are tagged with it and
+    only rows with the same tag count as done, so changing the phrasing never reuses old answers.
+    """
     instructions = dict(instructions or {QUESTION_KEY: DEFAULT_INSTRUCTIONS})
-    done = done_keys(cache_path, ("id",))
-    todo = [p for p in prompts if (p["id"],) not in done]
+    done = {r["id"] for r in load_jsonl(cache_path) if r.get("phrasing") == phrasing}
+    todo = [p for p in prompts if p["id"] not in done]
     for i, p in enumerate(todo, 1):
         r = jev.ask(p["prompt"], instructions)
         cost = jev_cost(r.input_tokens, cfg.jev_usd_per_m_input)
@@ -141,6 +196,7 @@ def run_jev(
                 "id": p["id"],
                 "source": p["source"],
                 "split": p["split"],
+                "phrasing": phrasing,
                 "probs": r.probs,
                 "input_tokens": r.input_tokens,
                 "output_tokens": r.output_tokens,

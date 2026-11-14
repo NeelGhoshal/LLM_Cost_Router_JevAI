@@ -7,14 +7,8 @@ import sys
 from typing import Any, Sequence
 
 from router.config import Config
-from router.runs import Estimate, load_prompts, spread
-
-
-def utf8_stdout() -> None:
-    """Model output contains characters the default Windows console encoding cannot print."""
-    for stream in (sys.stdout, sys.stderr):
-        if hasattr(stream, "reconfigure"):
-            stream.reconfigure(encoding="utf-8", errors="replace")
+from router.console import utf8_stdout  # noqa: F401  (re-exported for the scripts)
+from evalkit.runs import Estimate, load_prompts, spread
 
 
 def base_parser(description: str) -> argparse.ArgumentParser:

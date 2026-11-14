@@ -14,13 +14,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from dotenv import load_dotenv  # noqa: E402
 
-from router.cache import load_jsonl  # noqa: E402
-from router.cli import accuracy, cost_gate, progress, utf8_stdout  # noqa: E402
+from evalkit.cache import load_jsonl  # noqa: E402
+from evalkit.cli import accuracy, cost_gate, progress, utf8_stdout  # noqa: E402
 from router.config import load_config  # noqa: E402
 from router.costs import BudgetGuard  # noqa: E402
-from router.jev import QUESTION_KEY, TypeSafeJev  # noqa: E402
+from router.jev import PHRASINGS, QUESTION_KEY, TypeSafeJev  # noqa: E402
 from router.llm import make_llm_client  # noqa: E402
-from router.runs import CACHE_DIR, estimate, load_prompts, run_jev, run_models, spread  # noqa: E402
+from evalkit.runs import CACHE_DIR, estimate, load_prompts, run_jev, run_models, spread  # noqa: E402
 
 N_PROMPTS = 10
 MAX_USD = 0.50
@@ -50,7 +50,8 @@ def main() -> None:
     shutil.rmtree(SMOKE_DIR, ignore_errors=True)
     guard = BudgetGuard(MAX_USD)
     # Jev first: it is fast, so a bad key or model ID fails before the slow local runs.
-    run_jev(prompts, cfg, jev, SMOKE_DIR / "jev.jsonl", guard, progress=progress)
+    question = {QUESTION_KEY: PHRASINGS[cfg.jev_phrasing]}
+    run_jev(prompts, cfg, jev, SMOKE_DIR / "jev.jsonl", guard, question, progress, phrasing=cfg.jev_phrasing)
     clients = {"small": make_llm_client(cfg.small_model, cfg), "large": make_llm_client(cfg.large_model, cfg)}
     run_models(prompts, cfg, clients, SMOKE_DIR / "llm.jsonl", guard, progress)
 

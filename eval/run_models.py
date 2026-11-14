@@ -9,12 +9,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from dotenv import load_dotenv  # noqa: E402
 
-from router.cache import load_jsonl  # noqa: E402
-from router.cli import accuracy, base_parser, cost_gate, progress, select_prompts  # noqa: E402
+from evalkit.cache import load_jsonl  # noqa: E402
+from evalkit.cli import accuracy, base_parser, cost_gate, progress, select_prompts  # noqa: E402
 from router.config import load_config  # noqa: E402
 from router.costs import BudgetGuard  # noqa: E402
 from router.llm import make_llm_client  # noqa: E402
-from router.runs import CACHE_DIR, estimate, run_models  # noqa: E402
+from evalkit.runs import CACHE_DIR, estimate, run_models  # noqa: E402
 
 
 def main() -> None:

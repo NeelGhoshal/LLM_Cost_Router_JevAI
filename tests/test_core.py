@@ -1,6 +1,6 @@
 import pytest
 
-from router.cache import append_jsonl, done_keys, load_jsonl
+from evalkit.cache import append_jsonl, done_keys, load_jsonl
 from router.config import ModelSpec, load_config
 from router.costs import BudgetExceeded, BudgetGuard, is_billed, jev_cost, llm_cost
 

@@ -9,11 +9,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from dotenv import load_dotenv  # noqa: E402
 
-from router.cli import base_parser, cost_gate, progress, select_prompts  # noqa: E402
+from evalkit.cli import base_parser, cost_gate, progress, select_prompts  # noqa: E402
 from router.config import load_config  # noqa: E402
 from router.costs import BudgetGuard  # noqa: E402
-from router.jev import TypeSafeJev  # noqa: E402
-from router.runs import CACHE_DIR, estimate, run_jev  # noqa: E402
+from router.jev import PHRASINGS, QUESTION_KEY, TypeSafeJev  # noqa: E402
+from evalkit.runs import CACHE_DIR, estimate, run_jev  # noqa: E402
 
 
 def main() -> None:
@@ -28,7 +28,10 @@ def main() -> None:
     cost_gate(estimate(prompts, cfg, models=False), len(prompts), max_usd, args.yes, cfg)
 
     guard = BudgetGuard(max_usd)
-    made = run_jev(prompts, cfg, TypeSafeJev(cfg.jev_model), args.cache, guard, progress=progress)
+    question = {QUESTION_KEY: PHRASINGS[cfg.jev_phrasing]}
+    made = run_jev(
+        prompts, cfg, TypeSafeJev(cfg.jev_model), args.cache, guard, question, progress, phrasing=cfg.jev_phrasing
+    )
     print(f"{made} new calls, real spend ${guard.spent:.6f}")
 
 

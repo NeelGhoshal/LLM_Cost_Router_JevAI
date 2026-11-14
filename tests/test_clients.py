@@ -2,6 +2,7 @@ import json
 
 import httpx
 import httpx2
+import pytest
 
 from router.jev import DEFAULT_INSTRUCTIONS, QUESTION_KEY, FakeJev, TypeSafeJev
 from router.llm import FakeLLM, OllamaClient, OpenAICompatClient
@@ -103,3 +104,65 @@ def test_fake_llm_records_calls():
     assert r.text == "small says ANSWER: A"
     assert llm.calls == [("small", "question text")]
     assert r.input_tokens == 2 and r.output_tokens == 4
+
+
+def test_ollama_client_retries_a_stalled_request():
+    attempts = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        attempts.append(1)
+        if len(attempts) < 3:
+            raise httpx.ReadTimeout("stalled", request=request)
+        return httpx.Response(200, json={"message": {"content": "ANSWER: A"}, "prompt_eval_count": 1, "eval_count": 1})
+
+    client = OllamaClient("http://ollama.test", transport=httpx.MockTransport(handler), max_retries=2, retry_wait_s=0, **PARAMS)
+    assert client.complete("m", "x").text == "ANSWER: A"
+    assert len(attempts) == 3
+
+
+def test_ollama_client_gives_up_after_max_retries():
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ReadTimeout("stalled", request=request)
+
+    client = OllamaClient("http://ollama.test", transport=httpx.MockTransport(handler), max_retries=1, retry_wait_s=0, **PARAMS)
+    with pytest.raises(httpx.ReadTimeout):
+        client.complete("m", "x")
+
+
+def test_ollama_client_retries_server_errors_but_not_client_errors():
+    attempts = []
+
+    def flaky(request: httpx.Request) -> httpx.Response:
+        attempts.append(1)
+        if len(attempts) == 1:
+            return httpx.Response(500, json={"error": "runner crashed"})
+        return httpx.Response(200, json={"message": {"content": "ANSWER: A"}, "prompt_eval_count": 1, "eval_count": 1})
+
+    client = OllamaClient("http://ollama.test", transport=httpx.MockTransport(flaky), retry_wait_s=0, **PARAMS)
+    assert client.complete("m", "x").text == "ANSWER: A"
+    assert len(attempts) == 2
+
+    calls = []
+
+    def missing(request: httpx.Request) -> httpx.Response:
+        calls.append(1)
+        return httpx.Response(404, json={"error": "model not found"})
+
+    client = OllamaClient("http://ollama.test", transport=httpx.MockTransport(missing), retry_wait_s=0, **PARAMS)
+    with pytest.raises(httpx.HTTPStatusError):
+        client.complete("m", "x")
+    assert len(calls) == 1
+
+
+def test_ollama_degenerate_output_is_an_empty_answer_not_a_crash():
+    calls = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(1)
+        return httpx.Response(500, json={"error": "prediction aborted, token repeat limit reached"})
+
+    client = OllamaClient("http://ollama.test", transport=httpx.MockTransport(handler), retry_wait_s=0, **PARAMS)
+    r = client.complete("m", "x" * 35)
+    assert len(calls) == 1  # deterministic failure, so no retry
+    assert r.text == "" and r.error == "token repeat limit reached"
+    assert r.input_tokens == 10 and r.output_tokens == 600  # billed as a run to the cap

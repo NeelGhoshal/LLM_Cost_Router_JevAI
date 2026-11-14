@@ -11,10 +11,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from router.cache import load_jsonl  # noqa: E402
-from router.cli import accuracy, utf8_stdout  # noqa: E402
+from evalkit.cache import load_jsonl  # noqa: E402
+from evalkit.cli import accuracy, utf8_stdout  # noqa: E402
 from router.config import load_config  # noqa: E402
-from router.runs import CACHE_DIR  # noqa: E402
+from evalkit.runs import CACHE_DIR  # noqa: E402
 
 MIN_GAP_POINTS = 8.0
 

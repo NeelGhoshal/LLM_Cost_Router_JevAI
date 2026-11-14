@@ -2,12 +2,12 @@ import dataclasses
 
 import pytest
 
-from router.cache import load_jsonl
+from evalkit.cache import load_jsonl
 from router.config import ModelSpec, load_config
 from router.costs import BudgetExceeded, BudgetGuard, jev_cost, llm_cost
 from router.jev import FakeJev
 from router.llm import FakeLLM
-from router.runs import estimate, run_jev, run_models, spread
+from evalkit.runs import estimate, run_jev, run_models, spread
 
 PROMPTS = [
     {"id": "mmlu-1", "source": "mmlu", "split": "dev", "prompt": "Pick one. A. x B. y", "gold": "B"},

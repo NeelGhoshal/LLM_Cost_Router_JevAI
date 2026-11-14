@@ -1,6 +1,6 @@
 from collections import Counter
 
-from router.dataset import (
+from evalkit.dataset import (
     INSTRUCTION,
     format_arc,
     format_gsm8k,
@@ -9,7 +9,7 @@ from router.dataset import (
     per_source_counts,
     sample_and_split,
 )
-from router.graders import grade
+from evalkit.graders import grade
 
 MMLU_ROW = {"question": "2 + 2 = ?", "subject": "math", "choices": ["3", "4", "5", "6"], "answer": 1}
 ARC_ROW = {

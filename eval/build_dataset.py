@@ -11,7 +11,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from router.config import REPO_ROOT, load_config  # noqa: E402
-from router.dataset import load_sources, sample_and_split  # noqa: E402
+from evalkit.dataset import load_sources, sample_and_split  # noqa: E402
 
 DEFAULT_OUT = REPO_ROOT / "data" / "prompts.jsonl"
 

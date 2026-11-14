@@ -133,6 +133,150 @@ Real spend $0.000892. The full run will resume from these rows.
 - Preview only, 50 dev prompts, too few to conclude anything: AUROC for "small is correct" was 0.651 for Jev
   and 0.613 for prompt length. Jev probabilities ranged 0.25 to 0.96. Jev latency p50 78 ms, max 388 ms.
 
+## M5: full eval, simulation, chart (2026-11-13)
+
+Total real spend for M5: about $0.011, all Jev (phrasings $0.0045, full run $0.0061). Numbers below are
+from `results/metrics.json`; rebuild with `make results` (no API calls).
+
+### Phrasing choice (dev only)
+
+Three phrasings were asked in one request per dev prompt (`cache/jev_phrasings_dev.jsonl`). Three questions
+cost about 560 input tokens against 340 for one, so the state is billed once, not per question.
+
+| phrasing | dev AUROC for "small is correct" | 95% CI |
+|---|---|---|
+| statement (spec's wording) | 0.718 | 0.646 to 0.787 |
+| question form | 0.712 | 0.638 to 0.783 |
+| question plus `criteria` | 0.657 | 0.580 to 0.738 |
+| prompt length (baseline) | 0.668 | 0.591 to 0.747 |
+
+`statement` was kept. It and the question form are indistinguishable; adding `criteria` made it worse.
+The phrasing budget of 3 is now used up.
+
+### Result (test split, 200 prompts)
+
+- Always-small 58.0% at $0.0149 per 1,000 queries. Always-large 80.0% at $0.0760. Oracle 83.5% at $0.0308.
+- **Headline operating point**: the dev-chosen Jev threshold is 0.90, which routes 92% of test prompts to
+  large. Accuracy 78.5% (1.5 points below always-large, CI -3.5 to 0.0) at $0.0914, which is
+  **20.3% more expensive than always-large** (CI 18.2% to 22.5% more). There is no saving.
+- The prompt-length baseline, tuned the same way, sends 99% to large: same accuracy, 0.6% cheaper.
+- **Jev does carry signal about the small model**: AUROC for "small is correct" is 0.725 (CI 0.655 to 0.798)
+  against 0.589 for prompt length; the difference of 0.137 has a CI of 0.052 to 0.221, which excludes zero.
+- **That signal does not help routing here.** AUROC for "large is needed" (small wrong, large right) is
+  0.495 for Jev and 0.444 for length: chance. At a half-and-half split Jev is 0.8 points below random
+  routing at the same share (CI -4.2 to +2.6).
+- Jev latency over 400 single-question calls: p50 71 ms, p95 119 ms.
+
+### Why the curve is below the random line
+
+| Jev p bin (test) | n | small acc | large acc | mean large cost per 1,000 |
+|---|---|---|---|---|
+| 0.18 to 0.55 | 40 | 32.5% | 32.5% | $0.149 |
+| 0.56 to 0.70 | 40 | 35.0% | 75.0% | $0.095 |
+| 0.70 to 0.79 | 40 | 67.5% | 95.0% | $0.056 |
+| 0.79 to 0.85 | 40 | 77.5% | 97.5% | $0.043 |
+| 0.85 to 0.95 | 40 | 77.5% | 100% | $0.038 |
+
+1. The prompts Jev rates hardest (mostly MMLU-Pro) are ones the large model also gets wrong, and they are the
+   most expensive to send to it (about twice the mean). A threshold on `p_small_ok` sends these first.
+   On dev the bottom bin did gain 17 points, so this is partly a test-split draw, but the pattern is the same.
+2. The large model's gain is spread fairly evenly over the other bins, including 22 points in the top bin,
+   where the small model is "probably right" but the large one is almost always right.
+3. Jev's own cost ($0.0176 per 1,000 queries) is more than the small model's ($0.0149) and 23% of the large
+   model's at these imputed prices. With a 5x price ratio the routing fee eats most of the possible saving.
+   With a hosted pair at a 40x ratio the same fee would be negligible. That is a statement about arithmetic,
+   not a measured result.
+
+"Will the small model be right?" is the question the spec asks, and Jev answers it moderately well. The
+routing decision needs a different one: "will the large model be right where the small one is not?".
+
+### Things that went wrong during the run
+
+- Ollama stalled on one ordinary request (GPU idle, no response) and later returned a 500. The client now
+  times out after 180 s and retries stalls and 5xx responses twice.
+- One large-model reply (`mmlu_pro-3941`) hit Ollama's "token repeat limit reached" abort on every attempt:
+  the model loops on one token. It is recorded as an empty, wrong answer with an `error` field, and costed
+  as a run to the 600-token cap, which is what a hosted API would have billed.
+- Format failures over all 400 prompts: small 23 replies with no `ANSWER:` line (7 at the token cap),
+  large 14 (all at the cap). So 16 small-model replies (4%) lost on format alone, against 0 for large.
+  Strict grading therefore widens the gap by up to 4 points; the full-run gap is 22.8.
+
+## M5b: cascade (2026-11-13)
+
+Added after the pre-routing result above was known. Real spend about $0.015, all Jev.
+
+### What changed in the repo
+
+- `router/` now holds only the live router (config, costs, Jev and LLM clients, routing). Everything used
+  only for evaluation moved to `evalkit/` (cache, cli, dataset, graders, runs, simulate). `eval/` still holds
+  the scripts. No behaviour change: `results/metrics.json` was byte-identical before and after the move.
+- New: `eval/run_checks.py`, `eval/pick_check.py`, `Cascade` in `router/route.py`, `python -m router --cascade`.
+
+### The pattern
+
+TypeSafe's own cookbook (`docs.typesafe.ai/cookbooks/sde_cascade`) reports a cascade: a cheap model answers,
+Jev checks the answer, a strong model answers only when a check fires. Their numbers: cheap model 92.6% at
+$0.156 per 1,000 tasks, strong model 98.1% at $1.89, cascade 96.5% at $0.49 with 13% escalated. That is the
+only routing result with numbers I found in TypeSafe's docs, so it is the pattern used here. Note the two
+conditions their setup has: a 12x price gap, and a cheap model that is right 93% of the time.
+
+Here: the small model answers, Jev reads `{"prompt", "response"}` and returns the probability that the answer
+is wrong, and the large model answers when that reaches a threshold. A response with no `ANSWER:` line is
+escalated without calling Jev (6% of test prompts).
+
+### Check choice (dev only)
+
+Three candidate checks, one request per dev response (`cache/jev_checks_dev.jsonl`):
+
+| check | dev AUROC for "small answer is wrong" | 95% CI |
+|---|---|---|
+| `wrong_answer` | 0.937 | 0.901 to 0.971 |
+| `flawed_reasoning` | 0.911 | 0.867 to 0.953 |
+| `guess` | 0.813 | 0.752 to 0.869 |
+| max of all three | 0.905 | 0.860 to 0.946 |
+| response length (baseline) | 0.678 | 0.594 to 0.758 |
+
+`wrong_answer` alone was kept. One check costs about 560 Jev input tokens ($0.024 per 1,000 queries).
+
+### Result (test split, 200 prompts, 95% bootstrap CI)
+
+- **The check works.** AUROC for spotting a wrong small answer: 0.927 (0.878 to 0.964), against 0.713 for
+  response length; difference 0.215 (0.127 to 0.311). Small answers that pass at threshold 0.2 cover 54% of
+  prompts and are 91.6% correct, against 58% for the small model overall.
+- **Measured time (the real cost of local models).** Always-small 0.98 s, always-large 3.16 s.
+  - Match-large threshold (0.28, cheapest dev point within 1 point of always-large): 76.5% in 2.81 s. That is
+    11.2% less time (2.3 to 19.6) for 3.5 points less accuracy (-7.0 to -0.5). 43% escalated.
+  - Best-gain threshold (0.86, the dev point furthest above the random line): 73.0% in 1.86 s. That is 41.2%
+    less time (32.0 to 50.3) for 7.0 points less accuracy (-12.0 to -2.0), and 6.2 points above random
+    routing at the same time (2.5 to 9.7). 20% escalated.
+  - Averaged over every budget between always-small and always-large, the Jev cascade is 2.7 points above
+    random routing (0.2 to 5.1). It is the only policy above zero: prompt length -2.9, Jev pre-routing -5.8,
+    response-length cascade -4.8.
+- **Imputed dollars.** No gain. Match-large threshold: 5.5% dearer than always-large (-12.6 to +1.3 saved).
+  Averaged over budgets the cascade is 3.0 points below random (-5.5 to -0.5). One Jev check costs 31% of
+  a large-model call at these prices, and the small model is paid for on every query.
+- The cascade never reaches always-large accuracy cheaply. Where the small model is wrong, the large model is
+  right only about 60% of the time, and those are its slowest prompts.
+
+### Why this is weaker than the cookbook
+
+Both of its conditions fail here. The cost gap is 3.2x in time and 5x in imputed dollars, not 12x. The small
+model is right 58% of the time, not 93%, so nearly half of all prompts must be escalated to keep accuracy.
+
+### Things tried and dropped
+
+- `qwen3:8b` with thinking on, as a stronger "large": on 16 dev prompts it took 8.5x longer (32 s against
+  3.8 s) and got the same 14 right. No accuracy gain, so it was not run in full.
+
+### Honesty notes
+
+- The cascade, the time view, the best-gain threshold and the "mean gain over random" measure were all added
+  after the pre-routing test result was seen. The last one was added after looking at the test chart. Every
+  threshold and the choice of check were made on dev only, and mean gain involves no threshold at all, but
+  the decision about what to report was not made in advance. A fresh sample of prompts would settle it.
+- Time is measured wall-clock on one laptop GPU, one run. It includes network time for Jev.
+- `cascade_threshold` in `config.yaml` is 0.28. Use 0.86 to favour speed.
+
 ## Original proposal: Haiku 5.5 / Opus 5.5 on OpenRouter (not used)
 
 Same family, both on OpenRouter, prices read from the OpenRouter model pages on 2026-11-12.

@@ -1,5 +1,7 @@
 jev_model: jev-1.14.0
 jev_usd_per_m_input: 0.042
+# Which wording of the routing question to use (router/jev.py PHRASINGS). Chosen on dev.
+jev_phrasing: statement
 
 # Both LLMs run locally on Ollama, so real spend is $0. The usd_per_m_* values are
 # imputed list prices used for the cost axis. See NOTES.md for where they come from.
@@ -13,6 +15,13 @@ seed: 7
 n_prompts: 400
 max_usd: 10
 
-# Live router. threshold is a placeholder until it is tuned on dev in M5.
-threshold: 0.5
+# Live pre-routing: send to large when p_small_ok is below threshold (0.90 was the dev-chosen value).
+threshold: 0.9
 jev_timeout_s: 2.0
+
+# Cascade: the small model answers first, Jev checks the answer, large is used only when the
+# check fires. cascade_checks are keys of router/jev.py CHECKS, chosen on dev.
+cascade_checks: [wrong_answer]
+# Escalate when Jev's probability that the small answer is wrong reaches this. Dev-chosen values:
+# 0.28 stays closest to always-large accuracy; 0.86 gives the best gain over random routing in time.
+cascade_threshold: 0.28

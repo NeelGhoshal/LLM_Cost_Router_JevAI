@@ -1,6 +1,6 @@
 import pytest
 
-from router.graders import extract_answer, grade, grade_letter, grade_number
+from evalkit.graders import extract_answer, grade, grade_letter, grade_number
 
 
 @pytest.mark.parametrize(

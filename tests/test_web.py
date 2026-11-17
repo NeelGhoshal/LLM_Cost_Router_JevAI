@@ -108,7 +108,25 @@ def test_config_examples_and_static_pages(cfg):
     conf = c.get("/api/config").json()
     assert conf["small"]["id"] == cfg.small_model.id and conf["jev_ready"] is True
     examples = c.get("/api/examples").json()
-    assert examples == load_examples() and {e["source"] for e in examples} == {"arc", "gsm8k", "mmlu", "mmlu_pro"}
+    assert examples == load_examples()
+    assert {e["group"] for e in examples} == {"pass", "catch", "catch_unfixed", "miss", "false_alarm"}
+    assert {e["source"] for e in examples} == {"arc", "gsm8k", "mmlu", "mmlu_pro"}
+    assert all(e["gold"] and e["prompt"] and e["label"] and e["group_title"] for e in examples)
     assert "Jev" in c.get("/").text
     assert c.get("/app.js").status_code == 200
     assert c.get("/results/cost_quality.png").status_code == 200
+
+
+def test_examples_fall_back_without_picks_file(tmp_path):
+    examples = load_examples(picks_path=tmp_path / "missing.json")
+    assert {e["source"] for e in examples} == {"arc", "gsm8k", "mmlu", "mmlu_pro"}
+    assert {e["group"] for e in examples} == {"examples"}
+
+
+def test_every_picked_example_id_exists():
+    import json
+    from web.app import EXAMPLES_PATH
+    groups = json.loads(EXAMPLES_PATH.read_text(encoding="utf-8"))["groups"]
+    picked = [e["id"] for g in groups for e in g["examples"]]
+    assert len(set(picked)) == len(picked)
+    assert len(load_examples()) == len(picked)

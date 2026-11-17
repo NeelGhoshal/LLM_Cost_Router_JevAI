@@ -243,20 +243,37 @@ async function run(e) {
 
 function renderExamples(examples) {
   const box = $("#examples");
-  const counts = {};
-  for (const ex of examples) {
-    counts[ex.source] = (counts[ex.source] || 0) + 1;
-    const b = document.createElement("button");
-    b.type = "button";
-    b.textContent = `${SOURCE_NAMES[ex.source] || ex.source} ${counts[ex.source]}`;
-    b.setAttribute("aria-pressed", "false");
-    b.title = ex.prompt.slice(0, 160);
-    b.addEventListener("click", () => {
-      $("#prompt").value = ex.prompt;
-      state.example = ex;
-      box.querySelectorAll("button").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
-    });
-    box.append(b);
+  const order = [...new Set(examples.map((ex) => ex.group))];
+  for (const g of order) {
+    const members = examples.filter((x) => x.group === g);
+    const group = document.createElement("div");
+    group.className = "example-group " + g;
+    const head = document.createElement("p");
+    head.className = "example-head";
+    const strong = document.createElement("strong");
+    strong.textContent = members[0].group_title;
+    head.append(strong, " " + members[0].group_hint);
+    const chips = document.createElement("div");
+    chips.className = "chips";
+    for (const ex of members) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.textContent = ex.label;
+      const src = document.createElement("span");
+      src.className = "chip-src";
+      src.textContent = SOURCE_NAMES[ex.source] || ex.source;
+      b.append(" ", src);
+      b.setAttribute("aria-pressed", "false");
+      b.title = ex.prompt.slice(0, 160);
+      b.addEventListener("click", () => {
+        $("#prompt").value = ex.prompt;
+        state.example = ex;
+        box.querySelectorAll("button").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+      });
+      chips.append(b);
+    }
+    group.append(head, chips);
+    box.append(group);
   }
 }
 

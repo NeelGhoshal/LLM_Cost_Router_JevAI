@@ -37,6 +37,7 @@ log = logging.getLogger("web")
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 MAX_PROMPT_CHARS = 4000
 EXAMPLES_PER_SOURCE = 2
+EXAMPLES_PATH = Path(__file__).resolve().parent / "examples.json"
 
 
 class UnavailableJev:
@@ -176,16 +177,34 @@ def run_preroute(s: Services, prompt: str, threshold: float | None) -> dict[str,
     }
 
 
-def load_examples(path: Path = REPO_ROOT / "data" / "prompts.jsonl") -> list[dict[str, str]]:
-    """A few held-out test prompts per benchmark, with their gold answers."""
+def load_examples(
+    path: Path = REPO_ROOT / "data" / "prompts.jsonl", picks_path: Path = EXAMPLES_PATH
+) -> list[dict[str, str]]:
+    """Held-out test prompts with gold answers, in the order and groups of web/examples.json.
+
+    Each group collects prompts on which the cascade behaves one way (Jev passes a right answer,
+    catches a wrong one, misses one, ...), measured on the deployed models; see the note in that
+    file. Without the file, falls back to the first prompts per benchmark in one group.
+    """
     if not path.exists():
         return []
-    picked: dict[str, list[dict[str, str]]] = defaultdict(list)
+    rows = {}
     for line in path.read_text(encoding="utf-8").splitlines():
         row = json.loads(line)
-        if row["split"] == "test" and len(picked[row["source"]]) < EXAMPLES_PER_SOURCE:
-            picked[row["source"]].append({k: row[k] for k in ("id", "source", "prompt", "gold")})
-    return [ex for rows in picked.values() for ex in rows]
+        if row["split"] == "test":
+            rows[row["id"]] = {k: row[k] for k in ("id", "source", "prompt", "gold")}
+    if picks_path.exists():
+        out = []
+        for g in json.loads(picks_path.read_text(encoding="utf-8"))["groups"]:
+            meta = {"group": g["name"], "group_title": g["title"], "group_hint": g["hint"]}
+            out += [{**rows[e["id"]], **meta, "label": e["label"]} for e in g["examples"] if e["id"] in rows]
+        return out
+    picked: dict[str, list[dict[str, str]]] = defaultdict(list)
+    meta = {"group": "examples", "group_title": "Examples", "group_hint": "Held-out test questions."}
+    for ex in rows.values():
+        if len(picked[ex["source"]]) < EXAMPLES_PER_SOURCE:
+            picked[ex["source"]].append({**ex, **meta, "label": f"{ex['source']} {len(picked[ex['source']]) + 1}"})
+    return [ex for group in picked.values() for ex in group]
 
 
 def build_services(cfg: Config) -> Services:

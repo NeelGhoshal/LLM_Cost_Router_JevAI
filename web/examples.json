@@ -1,0 +1,53 @@
+{
+  "note": "Example prompts on the web demo, all from the test split of data/prompts.jsonl, grouped by what the cascade does with them at the default threshold (0.28). Picked on 2026-11-17: Jev checked the small model's answers to all 200 test prompts, then each candidate ran through the full cascade twice with the models in config.deploy.yaml (openai/gpt-oss-20b small, openai/gpt-oss-120b large, on Groq). Only prompts that behaved the same way both times are listed; the Jev scores in the comments are the two runs. Model output can still vary between runs, and the groups must be re-checked if the models change.",
+  "groups": [
+    {
+      "name": "pass",
+      "title": "Jev passes a right answer",
+      "hint": "The small model is right, Jev agrees, and the large model is never called.",
+      "examples": [
+        {"id": "arc-660", "label": "Problem-solving steps", "comment": "p_wrong 0.04, 0.03"},
+        {"id": "gsm8k-1164", "label": "Easter eggs", "comment": "p_wrong 0.06, 0.05"},
+        {"id": "mmlu-1151", "label": "Vector norms", "comment": "p_wrong 0.03, 0.03"},
+        {"id": "mmlu_pro-10032", "label": "Car speed", "comment": "p_wrong 0.02, 0.03"}
+      ]
+    },
+    {
+      "name": "catch",
+      "title": "Jev catches a wrong answer",
+      "hint": "The small model is wrong, Jev flags it, and the large model gets it right.",
+      "examples": [
+        {"id": "arc-236", "label": "Lab spill", "comment": "p_wrong 0.74, 0.74"},
+        {"id": "mmlu-13814", "label": "HIV testing policy", "comment": "p_wrong 0.39, 0.41"},
+        {"id": "mmlu_pro-1473", "label": "Constitutional law", "comment": "p_wrong 0.79, 0.82"}
+      ]
+    },
+    {
+      "name": "catch_unfixed",
+      "title": "Jev catches it, but the large model is wrong too",
+      "hint": "Escalating is the right call, but it does not help: both models miss these.",
+      "examples": [
+        {"id": "mmlu-10628", "label": "Government accounting", "comment": "p_wrong 0.93, 0.93"},
+        {"id": "mmlu_pro-3504", "label": "Net ionic equations", "comment": "p_wrong 0.78, 0.81"}
+      ]
+    },
+    {
+      "name": "miss",
+      "title": "Jev misses a wrong answer",
+      "hint": "Jev rates the wrong answer as probably fine, so it reaches the user. Drag the threshold below Jev's score to escalate it.",
+      "examples": [
+        {"id": "gsm8k-753", "label": "Broken glasses", "comment": "p_wrong 0.12, 0.11"},
+        {"id": "mmlu_pro-10291", "label": "SNMP tools", "comment": "p_wrong 0.17, 0.18; the large model is also wrong"}
+      ]
+    },
+    {
+      "name": "false_alarm",
+      "title": "Jev flags a right answer",
+      "hint": "A false alarm. On tomato vines the large model is also right; on hypotheses it answers wrongly, so escalating makes the result worse.",
+      "examples": [
+        {"id": "gsm8k-234", "label": "Tomato vines", "comment": "p_wrong 0.62, 0.65; large right"},
+        {"id": "arc-747", "label": "Hypotheses", "comment": "p_wrong 0.62, 0.61; large wrong"}
+      ]
+    }
+  ]
+}

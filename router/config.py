@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import Any
 from pathlib import Path
 
 import yaml
@@ -15,6 +16,8 @@ class ModelSpec:
     id: str
     usd_per_m_input: float
     usd_per_m_output: float
+    # Extra request fields for hosted providers, e.g. {reasoning_effort: low} for reasoning models.
+    extra_body: dict[str, Any] | None = field(default=None, hash=False)
 
 
 @dataclass(frozen=True)

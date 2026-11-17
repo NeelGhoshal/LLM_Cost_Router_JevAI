@@ -10,6 +10,14 @@ import httpx
 from router.config import Config, ModelSpec
 
 OPENROUTER_URL = "https://openrouter.ai/api/v1"
+GROQ_URL = "https://api.groq.com/openai/v1"
+
+# Hosted OpenAI-compatible providers: name -> (base URL, environment variable holding the key).
+# Groq serves open-weight models (Llama, Qwen, ...) on a free tier, which is what the web demo uses.
+HOSTED_PROVIDERS: dict[str, tuple[str, str]] = {
+    "openrouter": (OPENROUTER_URL, "OPENROUTER_API_KEY"),
+    "groq": (GROQ_URL, "GROQ_API_KEY"),
+}
 REPEAT_ABORT = "token repeat limit reached"  # Ollama's 500 body when a model degenerates
 
 
@@ -107,7 +115,9 @@ class OpenAICompatClient:
         seed: int,
         timeout_s: float = 120.0,
         transport: httpx.BaseTransport | None = None,
+        extra_body: dict | None = None,
     ) -> None:
+        self._extra = dict(extra_body or {})
         self._http = httpx.Client(
             base_url=base_url,
             timeout=timeout_s,
@@ -120,7 +130,7 @@ class OpenAICompatClient:
         start = time.perf_counter()
         r = self._http.post(
             "/chat/completions",
-            json={"model": model, "messages": [{"role": "user", "content": prompt}], **self._params},
+            json={"model": model, "messages": [{"role": "user", "content": prompt}], **self._params, **self._extra},
         )
         r.raise_for_status()
         latency_ms = (time.perf_counter() - start) * 1000
@@ -158,9 +168,10 @@ def make_llm_client(spec: ModelSpec, cfg: Config) -> LLMClient:
     common = dict(max_output_tokens=cfg.max_output_tokens, temperature=cfg.temperature, seed=cfg.seed)
     if spec.provider == "ollama":
         return OllamaClient(cfg.ollama_url, **common)
-    if spec.provider == "openrouter":
-        key = os.environ.get("OPENROUTER_API_KEY")
+    if spec.provider in HOSTED_PROVIDERS:
+        base_url, key_env = HOSTED_PROVIDERS[spec.provider]
+        key = os.environ.get(key_env)
         if not key:
-            raise RuntimeError("OPENROUTER_API_KEY is not set")
-        return OpenAICompatClient(OPENROUTER_URL, key, **common)
+            raise RuntimeError(f"{key_env} is not set")
+        return OpenAICompatClient(base_url, key, extra_body=spec.extra_body, **common)
     raise ValueError(f"unknown provider: {spec.provider}")

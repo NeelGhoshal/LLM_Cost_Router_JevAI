@@ -1,0 +1,7 @@
+# Only what the web demo needs (no datasets/pandas/matplotlib). Used by render.yaml and the Dockerfile.
+fastapi==0.115.12
+uvicorn[standard]==0.34.2
+httpx==0.28.1
+PyYAML==6.0.3
+python-dotenv==1.2.4
+typesafe-sdk==0.7.5

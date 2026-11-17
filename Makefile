@@ -4,7 +4,7 @@ else
 PY ?= .venv/bin/python
 endif
 
-.PHONY: test data smoke pilot eval phrasings checks results
+.PHONY: test data smoke pilot eval phrasings checks results web
 
 # Full run: make eval ARGS=--yes. Resume-safe: cached calls are skipped.
 eval:
@@ -47,3 +47,7 @@ test:
 # Rebuild data/prompts.jsonl from Hugging Face. Free: downloads datasets, calls no model.
 data:
 	$(PY) eval/build_dataset.py
+
+# Web demo on http://localhost:8000. Needs GROQ_API_KEY (and TYPESAFE_API_KEY for Jev) in .env.
+web:
+	$(PY) -m uvicorn web.app:app --reload

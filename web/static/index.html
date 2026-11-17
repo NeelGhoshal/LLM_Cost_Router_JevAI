@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Jev Cost Router</title>
+<meta name="description" content="Try an LLM cascade: a small open model answers, Jev checks the answer, and the large model is called only when the check fires.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='9' cy='9' r='5' fill='%230E7C74'/><circle cx='23' cy='23' r='5' fill='%235B3E9E'/><path d='M9 14v4a5 5 0 0 0 5 5h4' stroke='%23C98A00' stroke-width='3' fill='none'/></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,700;12..96,800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="bar">
+  <a class="brand" href="#top">Jev cost router</a>
+  <nav>
+    <a href="#try">Try it</a>
+    <a href="#results">Results</a>
+    <a href="https://github.com/NeelGhoshal/LLM_Cost_Router_JevAI">Source</a>
+  </nav>
+</header>
+
+<main id="top">
+  <section class="intro">
+    <h1>Let the small model answer. Call the big one only when the answer looks wrong.</h1>
+    <p class="lede">
+      A cheap open model answers first. <a href="https://docs.typesafe.ai">Jev</a> reads the question and the
+      answer and estimates the chance the answer is wrong. At or above your threshold, the prompt goes
+      to a larger, slower and dearer model instead.
+    </p>
+  </section>
+
+  <section id="try" class="console" aria-labelledby="try-h">
+    <h2 id="try-h" class="visually-hidden">Try the router</h2>
+
+    <div class="controls">
+      <fieldset class="modes">
+        <legend class="visually-hidden">Routing method</legend>
+        <label><input type="radio" name="mode" value="cascade" checked><span>Cascade</span></label>
+        <label><input type="radio" name="mode" value="preroute"><span>Pre-route</span></label>
+      </fieldset>
+      <div class="threshold">
+        <label for="threshold" id="threshold-label">Escalate when p(wrong) is at least</label>
+        <input id="threshold" type="range" min="0.05" max="0.95" step="0.01" value="0.28">
+        <output id="threshold-out" for="threshold">0.28</output>
+      </div>
+    </div>
+    <p class="mode-help" id="mode-help"></p>
+
+    <form id="ask">
+      <label for="prompt" class="visually-hidden">Prompt</label>
+      <textarea id="prompt" rows="6" placeholder="Ask a question with one right answer, or pick an example below." required></textarea>
+      <div class="form-foot">
+        <div class="examples" id="examples" aria-label="Example prompts from the held-out test set"></div>
+        <button type="submit" id="run">Run</button>
+      </div>
+    </form>
+
+    <div id="status" class="status" role="status" aria-live="polite"></div>
+
+    <ol id="trace" class="trace" hidden aria-label="How this prompt was routed"></ol>
+
+    <div id="summary" class="summary" hidden></div>
+  </section>
+
+  <section id="results" class="results" aria-labelledby="results-h">
+    <h2 id="results-h">What the evaluation found</h2>
+    <p class="note">
+      Measured offline on 200 held-out benchmark prompts (MMLU, MMLU-Pro, ARC-Challenge, GSM8K) with
+      <code>qwen3:1.7b</code> as the small model and <code>qwen3:8b</code> as the large one. The live demo above
+      uses a different, hosted pair, so its thresholds are untuned starting points.
+    </p>
+
+    <dl class="findings">
+      <div><dt>0.927</dt><dd>AUROC for Jev telling the small model's wrong answers from its right ones.</dd></div>
+      <div><dt>41% less time</dt><dd>for the speed-oriented cascade than always using the large model, at 73.0% accuracy against 80.0%.</dd></div>
+      <div><dt>No saving in dollars</dt><dd>for this pair: one Jev check costs about 31% of a large-model call, and the small model is right only 58% of the time.</dd></div>
+      <div><dt>Pre-routing lost</dt><dd>to random routing. The prompts Jev rates hardest are ones the large model also gets wrong.</dd></div>
+    </dl>
+
+    <figure>
+      <img src="results/cost_quality.png" alt="Two panels plotting accuracy against cost in dollars and against seconds per query. The Jev cascade sits above the random-routing line in time but not in dollars." loading="lazy">
+      <figcaption>Accuracy against imputed cost (left) and measured time per query (right). Solid lines are cascades, dotted lines pre-routing, dashed grey is random routing.</figcaption>
+    </figure>
+
+    <div class="table-wrap">
+      <table>
+        <caption>Test split, 200 prompts. Thresholds chosen on the dev split.</caption>
+        <thead>
+          <tr><th scope="col">Policy</th><th scope="col">Accuracy</th><th scope="col">Seconds per query</th><th scope="col">USD per 1,000</th><th scope="col">Sent to large</th></tr>
+        </thead>
+        <tbody>
+          <tr><th scope="row">Always small</th><td>58.0%</td><td>0.98</td><td>0.0149</td><td>0%</td></tr>
+          <tr><th scope="row">Always large</th><td>80.0%</td><td>3.16</td><td>0.0760</td><td>100%</td></tr>
+          <tr><th scope="row">Prompt-length pre-routing</th><td>80.0%</td><td>3.14</td><td>0.0755</td><td>99%</td></tr>
+          <tr><th scope="row">Jev pre-routing</th><td>78.5%</td><td>3.17</td><td>0.0914</td><td>92%</td></tr>
+          <tr class="hl"><th scope="row">Jev cascade, threshold 0.28</th><td>76.5%</td><td>2.81</td><td>0.0802</td><td>43%</td></tr>
+          <tr class="hl"><th scope="row">Jev cascade, threshold 0.86</th><td>73.0%</td><td>1.86</td><td>&ndash;</td><td>20%</td></tr>
+          <tr><th scope="row">Oracle</th><td>83.5%</td><td>1.60</td><td>0.0308</td><td>26%</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note">Full numbers, confidence intervals and limitations are in the <a href="https://github.com/NeelGhoshal/LLM_Cost_Router_JevAI#readme">README</a>.</p>
+  </section>
+</main>
+
+<footer class="foot" id="foot"></footer>
+
+<template id="station">
+  <li class="station">
+    <div class="node" aria-hidden="true"></div>
+    <div class="body">
+      <div class="head"><h3></h3><span class="meta"></span></div>
+      <div class="content"></div>
+    </div>
+  </li>
+</template>
+
+<script src="app.js"></script>
+</body>
+</html>

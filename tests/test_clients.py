@@ -166,3 +166,17 @@ def test_ollama_degenerate_output_is_an_empty_answer_not_a_crash():
     assert len(calls) == 1  # deterministic failure, so no retry
     assert r.text == "" and r.error == "token repeat limit reached"
     assert r.input_tokens == 10 and r.output_tokens == 600  # billed as a run to the cap
+
+
+def test_openai_compat_client_sends_extra_body():
+    seen = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["body"] = json.loads(request.content)
+        return httpx.Response(200, json={"choices": [{"message": {"content": "ANSWER: 1"}}], "usage": {}})
+
+    client = OpenAICompatClient(
+        "http://llm.test/v1", "k", transport=httpx.MockTransport(handler), extra_body={"reasoning_effort": "low"}, **PARAMS
+    )
+    client.complete("m", "hi")
+    assert seen["body"]["reasoning_effort"] == "low" and seen["body"]["max_tokens"] == 600

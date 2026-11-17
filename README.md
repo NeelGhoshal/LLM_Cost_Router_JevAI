@@ -191,11 +191,49 @@ python -m router --cascade "your prompt"    # cascade: small answers, Jev checks
 Both print which model answered, why, the answer, and its cost. If Jev errors or takes longer than 2 seconds,
 the request goes to the large model and the fallback is logged. Thresholds are in `config.yaml`.
 
+## Web demo
+
+`web/` is a small FastAPI app plus a static frontend. Visitors can type a prompt or pick a held-out test
+question, choose cascade or pre-routing, move the threshold, and watch each step: the small model's answer,
+Jev's probability against the threshold, whether the large model was called, and what it all cost. A second
+section shows the evaluation results above.
+
+The hosted demo uses open-weight models on [Groq](https://console.groq.com)'s free tier (`config.deploy.yaml`):
+`llama-3.1-8b-instant` as the small model and `llama-3.3-70b-versatile` as the large one. Real LLM spend is $0.
+Costs in the UI use Groq's paid list prices, a gap of roughly 10 times. The thresholds were tuned for the qwen3
+pair, not this one. Jev calls are billed to your TypeSafe key at about $0.000004 each. Each visitor is limited
+to `RATE_PER_MINUTE` requests per minute (default 6), and all visitors together to `DAILY_REQUEST_CAP` per day
+(default 300).
+
+Run it locally:
+
+```bash
+.venv/Scripts/python -m pip install -e ".[web]"
+# put GROQ_API_KEY (free, from console.groq.com/keys) and TYPESAFE_API_KEY in .env
+make web                                            # http://localhost:8000
+```
+
+Without `TYPESAFE_API_KEY` every request falls back to the large model. Without `GROQ_API_KEY` the page loads
+but cannot answer.
+
+### Deploy for free on Render
+
+1. Push this repo to GitHub.
+2. On [render.com](https://render.com), choose **New > Blueprint** and pick the repo. Render reads `render.yaml`.
+3. Enter `GROQ_API_KEY` and `TYPESAFE_API_KEY` when asked, then deploy.
+
+The free plan sleeps after 15 minutes without traffic, so the first request after a pause takes about a minute.
+
+The `Dockerfile` runs the same app on any container host. For Hugging Face Spaces, create a Docker Space, push
+the repo to it, and add the two keys as Space secrets. The Space's own README needs `sdk: docker` and
+`app_port: 7860` in its front matter.
+
 ## Layout
 
 | Path | Contents |
 |---|---|
 | `router/` | The live router: config, Jev and LLM clients, pre-routing and cascade logic, CLI |
+| `web/` | Web demo: FastAPI API (`web/app.py`) and the static frontend (`web/static/`) |
 | `evalkit/` | Evaluation library: dataset builder, graders, cached runs, policy simulation |
 | `eval/` | Scripts that run each evaluation step |
 | `tests/` | Offline tests |

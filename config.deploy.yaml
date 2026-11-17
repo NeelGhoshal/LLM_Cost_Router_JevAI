@@ -1,0 +1,37 @@
+# Config for the hosted web demo (web/app.py). The evaluation in README.md uses config.yaml.
+#
+# Both models are OpenAI's open-weight gpt-oss models (Apache 2.0), served by Groq's free tier
+# (https://console.groq.com), so real LLM spend is $0. The usd_per_m_* values are Groq's paid list
+# prices, shown in the UI so the cost comparison stays meaningful. Groq retires models from time to
+# time: list what your key can use with GET https://api.groq.com/openai/v1/models and swap the ids.
+jev_model: jev-1.14.0
+jev_usd_per_m_input: 0.042
+jev_phrasing: statement
+
+# These are reasoning models. Low effort keeps answers fast; the reasoning comes back in a separate
+# field and only the final answer is shown and checked. Reasoning tokens count toward the output cap.
+small_model:
+  provider: groq
+  id: openai/gpt-oss-20b
+  usd_per_m_input: 0.075
+  usd_per_m_output: 0.30
+  extra_body: {reasoning_effort: low}
+large_model:
+  provider: groq
+  id: openai/gpt-oss-120b
+  usd_per_m_input: 0.15
+  usd_per_m_output: 0.60
+  extra_body: {reasoning_effort: low}
+
+max_output_tokens: 2000
+temperature: 0
+seed: 7
+n_prompts: 400
+max_usd: 10
+
+# Thresholds were chosen on dev for the qwen3 pair in config.yaml, not re-tuned for this pair.
+# Visitors can move them in the UI.
+threshold: 0.9
+jev_timeout_s: 3.0
+cascade_checks: [wrong_answer]
+cascade_threshold: 0.28

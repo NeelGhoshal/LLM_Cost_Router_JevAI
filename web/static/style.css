@@ -41,6 +41,7 @@ a { color: inherit; text-decoration-color: var(--jev); text-underline-offset: 0.
 a:hover { text-decoration-color: currentColor; }
 :focus-visible { outline: 3px solid var(--jev); outline-offset: 2px; border-radius: 2px; }
 code { font: 0.9em var(--mono); }
+[hidden] { display: none !important; }
 .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
 .bar {
@@ -87,16 +88,9 @@ textarea {
 }
 textarea:focus { outline: 3px solid var(--jev); outline-offset: 0; border-color: transparent; }
 .form-foot { display: flex; gap: 1rem; justify-content: space-between; align-items: flex-start; margin-top: 0.75rem; flex-wrap: wrap; }
-.examples { display: flex; flex-direction: column; gap: 0.9rem; flex: 1 1 20rem; }
-.example-group { border-left: 4px solid var(--rule); padding-left: 0.8rem; }
-/* Colour says what the cascade ends up doing: small kept (teal), escalated (purple), Jev wrong (red). */
-.example-group.pass { border-left-color: var(--small); }
-.example-group.catch, .example-group.catch_unfixed { border-left-color: var(--large); }
-.example-group.miss, .example-group.false_alarm { border-left-color: var(--bad); }
-.chip-src { color: var(--muted); font-weight: 400; }
-.example-head { margin: 0 0 0.45rem; font-size: 0.92rem; color: var(--muted); }
-.example-head strong { color: var(--ink); font-weight: 600; }
+.examples { flex: 1 1 20rem; min-width: 0; }
 .chips { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.chip-src { color: var(--muted); font-weight: 400; }
 .examples button {
   font: 500 0.85rem var(--font); color: var(--muted); background: transparent;
   border: 1px solid var(--rule); border-radius: 999px; padding: 0.3rem 0.8rem; cursor: pointer;

@@ -4,6 +4,10 @@ A router that uses [Jev](https://docs.typesafe.ai) (TypeSafe AI's decision model
 LLM is good enough and when a prompt needs an expensive large one, plus an evaluation of whether that beats
 simple baselines on a cost versus accuracy curve.
 
+**Try it live: [jev-cost-router.onrender.com](https://jev-cost-router.onrender.com).** Pick an example question
+or type your own and watch the small model answer, Jev check it, and the large model step in when needed. The
+demo runs on a free plan, so the first load after a quiet spell can take about a minute.
+
 The evaluation is the point. Two ways of using Jev were measured:
 
 - **Pre-routing.** Jev reads the prompt and answers one yes/no question: will a small model get this right?

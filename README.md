@@ -198,9 +198,10 @@ question, choose cascade or pre-routing, move the threshold, and watch each step
 Jev's probability against the threshold, whether the large model was called, and what it all cost. A second
 section shows the evaluation results above.
 
-The hosted demo uses open-weight models on [Groq](https://console.groq.com)'s free tier (`config.deploy.yaml`):
-`llama-3.1-8b-instant` as the small model and `llama-3.3-70b-versatile` as the large one. Real LLM spend is $0.
-Costs in the UI use Groq's paid list prices, a gap of roughly 10 times. The thresholds were tuned for the qwen3
+The hosted demo uses OpenAI's open-weight gpt-oss models on [Groq](https://console.groq.com)'s free tier
+(`config.deploy.yaml`): `openai/gpt-oss-20b` as the small model and `openai/gpt-oss-120b` as the large one, both
+at low reasoning effort. Real LLM spend is $0. Costs in the UI use Groq's paid list prices, a gap of only about 2
+times, so expect the cascade to save time more than money with this pair. The thresholds were tuned for the qwen3
 pair, not this one. Jev calls are billed to your TypeSafe key at about $0.000004 each. Each visitor is limited
 to `RATE_PER_MINUTE` requests per minute (default 6), and all visitors together to `DAILY_REQUEST_CAP` per day
 (default 300).
